@@ -341,6 +341,7 @@ nRF Desktop
 
   * Partition Manager support from the :ref:`nrf_desktop` application.
   * The deprecated Kconfig options ``CONFIG_DESKTOP_HID_REPORT_EXPIRATION`` and ``CONFIG_DESKTOP_HID_EVENT_QUEUE_SIZE``.
+  * Support for the nRF52 Series devices from the :ref:`nrf_desktop` application.
 
 Thingy:53: Matter weather station
 ---------------------------------
@@ -623,6 +624,10 @@ Networking samples
     The sample now uses only resolved addresses that match a ready local IPv4/IPv6 address.
 
 * :ref:`http_server` sample:
+
+  * Updated the number of available network connection slots for Wi-Fi builds.
+    The sample's base setup already consumed 6 of the 10 slots configured through :kconfig:option:`CONFIG_NET_MAX_CONN`, leaving only 4 for incoming client connections.
+    The value was increased from 10 to 16 for more headroom.
 
   * Fixed:
 
@@ -1162,3 +1167,5 @@ Documentation
   * The :ref:`thingy53_app_guide` page by removing the Bluetooth Mesh samples from the list of samples that enable FOTA for Thingy:53 by default.
   * The :ref:`dfu_over_ble` page by removing the section about out-of-the-box point-to-point DFU over Bluetooth Low Energy on Thingy:53.
   * The :ref:`ug_bt_mesh_configuring` page by removing Thingy:53 as an example of a board with the Bluetooth LE Controller on a separate image.
+  * The :ref:`ug_nrf54h20_ironside_se_snapshot` page by adding a note about the snapshot services limitations.
+  * The :ref:`abi_compatibility` page by adding a section about |ISE| known issues.
