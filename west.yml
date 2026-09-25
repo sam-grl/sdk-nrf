@@ -209,13 +209,13 @@ manifest:
       groups:
         - libmodem
     - name: openthread
-      url: https://github.com/EskoDijk/openthread.git
+      url: https://github.com/sam-grl/openthread
       path: modules/lib/openthread
-      revision: 0130b22b0204958e0d4b1d003efbe2db077419d6
+      revision: 12382e9a38cf83f8ea6b4061b6ecb56935e3bb8c
       userdata:
         ncs:
           upstream-url: https://github.com/openthread/openthread
-          upstream-sha: 0130b22b0204958e0d4b1d003efbe2db077419d6
+          upstream-sha: 12382e9a38cf83f8ea6b4061b6ecb56935e3bb8c
           compare-by-default: false
     - name: doc-internal
       repo-path: doc-internal
