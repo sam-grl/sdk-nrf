@@ -158,6 +158,7 @@ Security
     See also :ref:`ug_tfm_logging` for more information.
   * Support for the SHAKE-128 and SHAKE-256 eXtendable Output Functions (XOF) in the CRACEN driver.
   * Support for signature verification with ML-DSA-44, ML-DSA-65, and ML-DSA-87 when using the CRACEN driver.
+  * Support for key encapsulation and decapsulation with ML-KEM-512, ML-KEM-768, and ML-KEM-1024 when using the CRACEN driver.
 
 * Updated:
 
@@ -211,12 +212,22 @@ Bluetooth Mesh
 DECT NR+
 --------
 
-* Added DECT NR+ L2 Ethernet sink mode for IPv6 bridging over an Ethernet uplink:
+* Added:
 
-  * Delegated ``/96`` prefix and ULA on DECT NR+
-  * ND proxy on behalf of associated PT devices
-  * Optional DHCPv6 client
-  * Upstream routing through the default router link-local address
+  * DECT NR+ L2 Ethernet sink mode for IPv6 bridging over an Ethernet uplink:
+
+    * Delegated ``/96`` prefix and ULA on DECT NR+
+    * ND proxy on behalf of associated PT devices
+    * Optional DHCPv6 client
+    * Upstream routing through the default router link-local address
+
+  * The :kconfig:option:`CONFIG_NET_L2_DECT_IPV6_IFACE_UNICAST_INSTALL` Kconfig option to the DECT NR+ L2, enabled by default, that installs derived ULA and delegated GUA addresses (and their on-link ULA prefixes) on the DECT NR+ interface.
+    Disabling it derives the same addresses without installing them (or their on-link ULA prefixes) on the DECT NR+ interface, keeping only the link-local address on the interface.
+    This is an enabler for the tethering GW use case.
+    A new :c:func:`dect_net_l2_ipv6_off_iface_unicast_get` function lets upper layers read the addresses that are kept off the interface address list.
+
+  * The :kconfig:option:`CONFIG_DECT_MDM_RX_PRIVATE_POOL` Kconfig option to the nRF91 Series DECT modem driver to allocate DECT RX ``net_pkt``/``net_buf`` from a DECT-only pool isolated from the global RX pools, so that RX bursts on another interface (for example, the tethering GW's Ethernet host leg) cannot starve DECT NR+ RX.
+    Pool size is tunable through the ``CONFIG_DECT_MDM_RX_PRIVATE_{PKT,BUF}_COUNT`` and ``_BUF_SIZE`` Kconfig options, and pool usage can be printed with the new ``dect_mdm rx_pool`` shell command.
 
 * Updated by improving half-closed association recovery in the nRF91 DECT driver and L2 stack (DLC discard timer, ``RD_NOT_FOUND``, L2 table full).
   The :c:func:`dect_net_l2_child_association_created` function now returns ``int``; check for ``-ENOSPC`` and release the MAC association.
@@ -261,6 +272,7 @@ Wi-Fi®
 
 * Updated the Connection Manager Wi-Fi connectivity layer to defer the connect request to its dedicated work queue (``wifi_conn_wq``) instead of running it synchronously in the context of the caller of :c:func:`conn_mgr_if_connect()`.
   This allows the stacks of the application, shell, and Connection Manager monitor threads to be reduced, as they no longer need to accommodate the Wi-Fi connect call chain.
+* Updated the default value of the :kconfig:option:`CONFIG_NET_MGMT_EVENT_QUEUE_TIMEOUT` Kconfig option to ``50`` milliseconds when :kconfig:option:`CONFIG_NET_L2_WIFI_SHELL` is enabled to prevent Wi-Fi scan events from being dropped when using slow shell backends.
 
 Applications
 ============
@@ -323,7 +335,9 @@ nRF Desktop
     The :ref:`nrf_desktop_hids` module enables support for the feature in the underlying HID GATT Service.
     The :ref:`nrf_desktop_ble_latency` module handles HID SCI mode change requests and the related connection parameter updates.
     Enable the feature with the :option:`CONFIG_DESKTOP_HIDS_SCI_ENABLE` Kconfig option.
-  * The ``hid_sci`` and ``release_hid_sci`` build types for the ``nrf54l15dk/nrf54l15/cpuapp`` board target.
+  * The ``hid_sci`` and ``release_hid_sci`` build types for the ``nrf54l15dk/nrf54l15/cpuapp``, ``nrf54lm20dk/nrf54lm20a/cpuapp``, and ``nrf54lm20dk/nrf54lm20b/cpuapp`` board targets.
+    The configurations act as a HID mouse peripheral with HID SCI support.
+  * The ``hid_sci`` and ``release_hid_sci`` build types for the ``nrf54ls05dk/nrf54ls05a/cpuapp`` and ``nrf54ls05dk/nrf54ls05b/cpuapp`` board targets.
     The configurations act as a HID mouse peripheral with HID SCI support.
   * LLPM dongle application configurations for the nRF54LM20 DK (``nrf54lm20dk/nrf54lm20a/cpuapp`` and ``nrf54lm20dk/nrf54lm20b/cpuapp`` board targets).
   * The :kconfig:option:`CONFIG_NCS_MCUBOOT_DISCARDS_HEADER_IN_SECONDARY_MCUBOOT` Kconfig option that allows to drop the MCUboot image header in secondary MCUboot image update, when the update is installed to a designated slot by MCUboot.
@@ -501,6 +515,9 @@ DFU samples
 DECT NR+ samples
 ----------------
 
+* Added the :ref:`dect_tether_ipv6_sample` sample for an nRF91x1 PT device that bridges a DECT NR+ uplink to a wired Ethernet host, acting as an IPv6 gateway (GW) using the new :ref:`lib_dect_tethering` library.
+  Ethernet connectivity uses a W5500 SPI shield (Arceli interrupt-driven or Seeed poll-mode) on the nRF9151 DK.
+
 * :ref:`dect_shell_application` sample:
 
   * Added:
@@ -509,6 +526,8 @@ DECT NR+ samples
     * Optional mDNS/DNS-SD advertise (``_dect-nr._udp``) and ``dect discover`` shell command to browse and resolve DECT NR+ peers on the network.
     * Ethernet border router sink variant using a W5500 shield (``arceli_eth_w5500`` or ``seeed_w5500``), with configuration and devicetree overlays for modem shared memory, static or random MAC, and optional DHCPv6.
     * Shared mDNS configuration overlay (:file:`mdns-common.conf`) and Ethernet mDNS overlay (:file:`eth_mdns.conf`) for DNS-SD on both ``dect0`` and ``eth0``.
+    * The :file:`dect_rx_pool.conf` configuration file that enables :kconfig:option:`CONFIG_DECT_MDM_RX_PRIVATE_POOL` with sink/FT-tuned pool sizes, so that DECT NR+ uplink RX bursts no longer starve the shared global RX pools, and rebalance the global TX/RX pool sizes to match observed usage.
+    * The :file:`dlc_resilient.conf` configuration file for a loss-resilient DLC profile when using the Ethernet sink mode.
 
   * Updated ``ping`` to use the Zephyr ``net_icmp`` API (IPv6).
   * Fixed the routing logs.
@@ -618,6 +637,10 @@ Networking samples
 
   * Fixed an issue with the sample's IPv6 support, where the device crashes when trying to communicate over IPv6.
 
+* :ref:`azure_iot_hub` sample:
+
+  * Updated the MCUboot boot partition size from 54 KB to 64 KB on the ``nrf54lm20dk/nrf54lm20a/cpuapp/ns`` and ``nrf54lm20dk/nrf54lm20b/cpuapp/ns`` board targets.
+
 * :ref:`https_client` sample:
 
   * Fixed an issue where the sample could try to connect over IPv4 or IPv6 even when the device had no local address for that family.
@@ -641,6 +664,8 @@ Networking samples
     * IPv6 address and multicast group limits.
       When the access point advertised both SLAAC and stateful DHCPv6, the default :kconfig:option:`CONFIG_NET_IF_UNICAST_IPV6_ADDR_COUNT` and :kconfig:option:`CONFIG_NET_IF_MCAST_IPV6_ADDR_COUNT` values were too low to hold all resulting addresses, causing ``Failed to configure DHCPv6 address`` and ``Cannot join solicit node address ... (-12)`` errors.
       Both Kconfig option values were increased.
+    * The HTTP response to GET requests.
+      An extra blank line after the ``Content-Type`` header terminated the header section early, putting the ``Content-Length`` header in the response body.
 
 NFC samples
 -----------
@@ -740,6 +765,7 @@ Wi-Fi samples
       You must now explicitly select either the MQTT or the CoAP transport, using the new :file:`mqtt.conf` or the existing :file:`coap.conf` configuration file, respectively.
     * By re-enabling the :kconfig:option:`CONFIG_NET_IPV6` Kconfig option in the :file:`coap.conf` file.
       The option was previously disabled as a workaround for the slow IPv6-to-IPv4 fallback issue that has been fixed in :ref:`lib_nrf_cloud`.
+    * The MCUboot boot partition size from 48 KB to 64 KB on the ``nrf54lm20dk/nrf54lm20a/cpuapp/ns`` and ``nrf54lm20dk/nrf54lm20b/cpuapp/ns`` board targets.
 
   * Fixed:
 
@@ -780,6 +806,7 @@ Other samples
 
 * Added:
 
+  * The :ref:`power_consumption_sample` sample for evaluating System ON Idle power consumption with configurable application RAM retention on the nRF7120 SoC.
   * The :ref:`vtf_monitoring_sample` sample that demonstrates how to capture voltage, temperature, and frequency data using the :ref:`vtf_monitoring` subsystem.
   * The :ref:`pulse_meas` sample that checks the pulse width of an externally provided signal.
   * The :ref:`rtfw_timer_gpio_sample` and :ref:`rtfw_hid_sample` samples demonstrating the RTFW control, fast-path, and event-delivery mechanisms.
@@ -912,6 +939,13 @@ Multiprotocol Service Layer libraries
 
 Libraries for networking
 ------------------------
+
+* Added the :ref:`lib_dect_tethering` library (:kconfig:option:`CONFIG_DECT_TETHER_IPV6_LIB`, :ref:`experimental <software_maturity>`) that turns a DECT NR+ uplink into an IPv6 gateway (GW) for a tethered host on Ethernet, without relying on host-side SLAAC.
+  It performs the following operations:
+
+  * Sends ICMPv6 Router Advertisements (default router, RDNSS, Managed flag, PIO with ``A=0``/``L=0``) so that the host uses DHCPv6 for addressing.
+  * Provides a built-in minimal DHCPv6 server (UDP 547) that offers ULA and delegated GUA ``/128`` addresses derived from the DECT NR+ interface.
+  * Optionally forwards IPv6 mDNS (UDP 5353) between the Ethernet and DECT NR+ interfaces through an ``AF_PACKET`` tap.
 
 * :ref:`lib_nrf_cloud_pgps` library:
 
@@ -1169,3 +1203,4 @@ Documentation
   * The :ref:`ug_bt_mesh_configuring` page by removing Thingy:53 as an example of a board with the Bluetooth LE Controller on a separate image.
   * The :ref:`ug_nrf54h20_ironside_se_snapshot` page by adding a note about the snapshot services limitations.
   * The :ref:`abi_compatibility` page by adding a section about |ISE| known issues.
+  * The :ref:`ug_nrf70_features` page by moving the :ref:`ug_nrf70_features_hostap` section to the :ref:`ug_wifi_overview` page.

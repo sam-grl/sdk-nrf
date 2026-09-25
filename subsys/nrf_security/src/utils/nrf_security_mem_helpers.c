@@ -44,14 +44,37 @@ int constant_memdiff_array_value(const uint8_t *a, uint8_t val, size_t sz)
 	return r;
 }
 
-void constant_select_bin(bool select, const uint8_t *true_val, const uint8_t *false_val,
-			 uint8_t *dst, size_t sz)
+size_t constant_count(const uint8_t *a, size_t sz, uint8_t val, enum constant_count_match match)
 {
-	int8_t mask = select ? 0xFF : 0x00;
+	volatile size_t count = 0;
+	volatile int still_matching = 1;
 
+	for (size_t i = 0; i < sz; i++) {
+		int matches = (match == MATCH_EQUAL) ? (a[i] == val) : (a[i] != val);
+		int increment = still_matching & matches;
+		size_t mask = (size_t)0 - (size_t)increment;
+
+		count = (count & ~mask) | ((count + 1) & mask);
+		still_matching &= matches;
+	}
+
+	return count;
+}
+
+void constant_mask_select_bin(uint8_t mask, const uint8_t *true_val, const uint8_t *false_val,
+			      uint8_t *dst, size_t sz)
+{
 	for (size_t i = 0; i < sz; i++) {
 		dst[i] = (mask & true_val[i]) | (~mask & false_val[i]);
 	}
+}
+
+void constant_select_bin(bool select, const uint8_t *true_val, const uint8_t *false_val,
+			 uint8_t *dst, size_t sz)
+{
+	uint8_t mask = select ? 0xFF : 0x00;
+
+	constant_mask_select_bin(mask, true_val, false_val, dst, sz);
 }
 
 bool memcpy_check_non_zero(void *dest, size_t dest_size, const void *src, size_t src_size)
