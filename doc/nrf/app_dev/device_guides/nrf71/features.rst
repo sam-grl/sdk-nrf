@@ -48,7 +48,7 @@ These elements provide a platform for secure execution environments and secure d
 You can use :ref:`security by separation <ug_tfm_security_by_separation>` with the Cortex-M33 TrustZone® on the application core.
 When enabled, :ref:`Trusted Firmware-M (TF-M) <ug_tfm>` configures part of the memory and peripherals as non-secure and then jumps to the user application located in the non-secure area.
 
-For example, on the nRF7120 DK, the firmware on the application core is built using one of the following board targets:
+For example, on the nRF7120 DK, the firmware on the application core is built using one of the following board targets (for the nRF7120 SoC):
 
 * ``nrf7120dk/nrf7120/cpuapp`` for board targets with security by separation disabled.
 * ``nrf7120dk/nrf7120/cpuapp/ns`` for board targets with security by separation enabled.
@@ -61,13 +61,34 @@ FLPR coprocessor
 The Fast Lightweight Peripheral Processor (FLPR) is a RISC-V core that operates as a coprocessor to the application core.
 Use this core to offload processing tasks from the application core.
 
-For example, on the nRF7120 DK, the firmware on the FLPR core is built using the ``nrf7120dk/nrf7120/cpuflpr`` board target.
+For example, on the nRF7120 DK, the firmware on the FLPR core is built using the ``nrf7120dk/nrf7120/cpuflpr`` board target (for the nRF7120 SoC).
 
 Supported protocols
 *******************
 
 The nRF71 Series supports several protocols, including the following:
 
-* Wi-Fi
-* Bluetooth Low Energy
-* Thread (IEEE 802.15.4)
+* :ref:`Wi-Fi <ug_wifi>`
+* :ref:`Bluetooth Low Energy <ug_bt>`
+* :ref:`Thread <ug_thread>` (IEEE 802.15.4)
+
+Supported Wi-Fi standards and modes
+===================================
+
+The nRF71 Series devices are ultra-low power SoCs that support Wi-Fi 6 or Wi-Fi 6E wireless connectivity, depending on the specific nRF71 SoC variant.
+Wi-Fi 6 and Wi-Fi 6E align with IEEE 802.11ax and all earlier versions of the IEEE 802.11 suite of wireless LAN standards.
+
+.. note::
+
+   Wi-Fi support for nRF71 Series devices is currently experimental.
+
+Currently, the nRF71 Series devices support the following modes:
+
+* :ref:`Wi-Fi mode <ug_wifi>`: Provides IEEE 802.11 protocol stack functionality.
+* :ref:`Radio test <wifi_radio_test>`: Provides support for PHY (Baseband and Radio) characterization and calibration.
+
+The nRF71 Series devices support the following functionalities in the Wi-Fi mode:
+
+* :ref:`Station (STA) <wifi_station_sample>`: Operates as a wireless client device.
+* :ref:`Scan <ug_nrf70_developing_scan_operation>`: Operates as a scan-only device.
+* :ref:`Wi-Fi advanced security <ug_nrf70_wifi_advanced_security_modes>`: Allows the use of advanced security, certificate-based Wi-Fi security, and the Platform Security Architecture (PSA) security framework.

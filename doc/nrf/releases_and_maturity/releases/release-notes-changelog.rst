@@ -319,6 +319,8 @@ nRF Audio (formerly nRF5340 Audio)
   * The :kconfig:option:`CONFIG_BT_BAP_UNICAST_CONFIGURABLE` option from the unicast client and server applications.
     This option was not useful because the unicast server range settings overwrite the bitrate configuration.
 
+* Updated audio_datapath to use the new audio rate control API.
+
 nRF Desktop
 -----------
 
@@ -335,9 +337,16 @@ nRF Desktop
     The :ref:`nrf_desktop_hids` module enables support for the feature in the underlying HID GATT Service.
     The :ref:`nrf_desktop_ble_latency` module handles HID SCI mode change requests and the related connection parameter updates.
     Enable the feature with the :option:`CONFIG_DESKTOP_HIDS_SCI_ENABLE` Kconfig option.
-  * The ``hid_sci`` and ``release_hid_sci`` build types for the ``nrf54l15dk/nrf54l15/cpuapp``, ``nrf54lm20dk/nrf54lm20a/cpuapp``, and ``nrf54lm20dk/nrf54lm20b/cpuapp`` board targets.
-    The configurations act as a HID mouse peripheral with HID SCI support.
-  * The ``hid_sci`` and ``release_hid_sci`` build types for the ``nrf54ls05dk/nrf54ls05a/cpuapp`` and ``nrf54ls05dk/nrf54ls05b/cpuapp`` board targets.
+  * The ``hid_sci`` and ``release_hid_sci`` build types for the following board targets:
+
+    * ``nrf54l15dk/nrf54l05/cpuapp``
+    * ``nrf54l15dk/nrf54l10/cpuapp``
+    * ``nrf54l15dk/nrf54l15/cpuapp``
+    * ``nrf54lm20dk/nrf54lm20a/cpuapp``
+    * ``nrf54lm20dk/nrf54lm20b/cpuapp``
+    * ``nrf54ls05dk/nrf54ls05a/cpuapp``
+    * ``nrf54ls05dk/nrf54ls05b/cpuapp``
+
     The configurations act as a HID mouse peripheral with HID SCI support.
   * LLPM dongle application configurations for the nRF54LM20 DK (``nrf54lm20dk/nrf54lm20a/cpuapp`` and ``nrf54lm20dk/nrf54lm20b/cpuapp`` board targets).
   * The :kconfig:option:`CONFIG_NCS_MCUBOOT_DISCARDS_HEADER_IN_SECONDARY_MCUBOOT` Kconfig option that allows to drop the MCUboot image header in secondary MCUboot image update, when the update is installed to a designated slot by MCUboot.
@@ -402,6 +411,10 @@ Bluetooth samples
 * :ref:`channel_sounding_ras_initiator` and :ref:`channel_sounding_ras_reflector` samples:
 
   * Removed support for the ``nrf54h20dk/nrf54h20/cpuapp`` board target.
+
+* :ref:`bluetooth_central_dfu_smp` sample:
+
+  * Updated the sample to use the :ref:`lib_dfu_target` library with the new Bluetooth LE transport to update a remote device over SMP.
 
 Bluetooth Mesh samples
 ----------------------
@@ -635,7 +648,12 @@ Networking samples
     * Support for mutual DTLS (client X.509 certificate authentication), using the new :option:`CONFIG_COAP_SAMPLE_DTLS` Kconfig option
     * A :file:`wifi-dtls.conf` extra-conf file with example client certificate and CA trust chain for testing against the Eclipse Californium CoAP interop server.
 
-  * Fixed an issue with the sample's IPv6 support, where the device crashes when trying to communicate over IPv6.
+  * Fixed:
+
+    * An issue with the sample's IPv6 support, where the device crashes when trying to communicate over IPv6.
+    * An issue where the DTLS handshake failed on the ``nrf7120dk/nrf7120/cpuapp/ns`` board target due to an under-dimensioned TF-M crypto IOVEC buffer.
+
+  * Updated the sample to only reboot on fatal errors and reconnect to the server on recoverable errors.
 
 * :ref:`azure_iot_hub` sample:
 
@@ -824,6 +842,7 @@ This section provides detailed lists of changes by :ref:`driver <drivers>`.
   * The :ref:`vtf_monitoring` for battery voltage, temperature, and frequency monitoring.
   * The :ref:`nrf71_sr_coex` driver, which coordinates Wi-Fi and short-range coexistence on an nRF71 Series device.
   * The :ref:`saadct` driver, which uses an external TIMER and GPPI to trigger SAADC sampling at a configured rate.
+  * The :ref:`can_scan` device driver, which integrates the :ref:`sCAN` soft peripheral, exposing it through the :ref:`can` device driver API.
 
 SPI drivers
 -----------
@@ -911,6 +930,10 @@ DFU libraries
 
 * Added the :ref:`lib_fw_loader_settings` library to pass the firmware loader Bluetooth advertising name from the main application to the firmware loader image using Settings storage.
 
+* :ref:`lib_dfu_target` library:
+
+  * Added an experimental Bluetooth LE transport for the SMP backend.
+
 Gazell libraries
 ----------------
 
@@ -985,6 +1008,8 @@ Libraries for NFC
 
   * Fixed an issue where parsing a malformed long-format NDEF record could produce an incorrect payload length.
     The parser now validates type, ID, and payload lengths against the remaining input buffer.
+
+* Fixed an issue where calling the NFC platform callback in the :file:`platform_internal_thread` file with zero-length data and ``copy_data`` enabled could corrupt the ring buffer and cause incorrect header parsing in the consumer thread.
 
 nRF RPC libraries
 -----------------
@@ -1084,7 +1109,7 @@ Memfault integration
 
 * Added support for setting the Memfault project key at runtime using the :kconfig:option:`CONFIG_MEMFAULT_PROJECT_KEY_SETTINGS` Kconfig option.
 
-* Updated Memfault to version 1.44.0.
+* Updated Memfault to version 1.45.0.
   See the `Memfault firmware SDK changelog`_ for details.
 
 * Removed the ``CONFIG_MEMFAULT_NCS_PROVISION_CERTIFICATES`` Kconfig option from nRF91x targets.
