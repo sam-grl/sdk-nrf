@@ -211,11 +211,11 @@ manifest:
     - name: openthread
       url: https://github.com/sam-grl/openthread
       path: modules/lib/openthread
-      revision: 12382e9a38cf83f8ea6b4061b6ecb56935e3bb8c
+      revision: 53e846990070631b6178ad3368f8973a21c3f3d3
       userdata:
         ncs:
           upstream-url: https://github.com/openthread/openthread
-          upstream-sha: 12382e9a38cf83f8ea6b4061b6ecb56935e3bb8c
+          upstream-sha: 53e846990070631b6178ad3368f8973a21c3f3d3
           compare-by-default: false
     - name: doc-internal
       repo-path: doc-internal
