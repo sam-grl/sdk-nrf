@@ -1318,6 +1318,7 @@ int nrf_wifi_wpa_set_supp_port(void *if_priv, int authorized, char *bssid)
 	struct nrf_wifi_sys_fmac_dev_ctx *sys_dev_ctx;
 	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
 	int ret = -1;
+	bool update_dormant = false;
 
 	if (!if_priv || !bssid) {
 		LOG_ERR("%s: Invalid params", __func__);
@@ -1373,11 +1374,16 @@ int nrf_wifi_wpa_set_supp_port(void *if_priv, int authorized, char *bssid)
 
 	if (vif_ctx_zep->if_type == NRF_WIFI_IFTYPE_STATION) {
 		sys_dev_ctx->tx_config.peers[0].authorized = authorized;
+		update_dormant = true;
 	}
 
 	ret = 0;
 out:
 	k_mutex_unlock(&vif_ctx_zep->vif_lock);
+
+	if (update_dormant) {
+		nrf_wifi_refresh_oper_state(vif_ctx_zep);
+	}
 	return ret;
 }
 
@@ -2039,6 +2045,11 @@ int nrf_wifi_supp_get_capa(void *if_priv, struct wpa_driver_capa *capa)
 	capa->flags |= WPA_DRIVER_FLAGS_SME;
 	capa->flags |= WPA_DRIVER_FLAGS_SAE;
 	capa->flags |= WPA_DRIVER_FLAGS_SET_KEYS_AFTER_ASSOC_DONE;
+	/* Route EAPOL TX through the driver control port instead of the
+	 * networking stack, so the handshake is not gated by the interface
+	 * operational (dormant) state.
+	 */
+	capa->flags |= WPA_DRIVER_FLAGS_CONTROL_PORT;
 	capa->rrm_flags |= WPA_DRIVER_FLAGS_SUPPORT_RRM;
 	capa->rrm_flags |= WPA_DRIVER_FLAGS_SUPPORT_BEACON_REPORT;
 	if (IS_ENABLED(CONFIG_NRF71_AP_MODE)) {
@@ -2294,7 +2305,7 @@ int nrf_wifi_supp_remain_on_channel(void *if_priv, unsigned int freq,
 				    unsigned int duration, u64 host_cookie)
 {
 	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
-#ifdef NRF71_P2P_MODE
+#ifdef CONFIG_NRF71_P2P_MODE
 	struct nrf_wifi_vif_ctx_zep *vif_ctx_zep = NULL;
 	struct nrf_wifi_ctx_zep *rpu_ctx_zep = NULL;
 	struct remain_on_channel_info roc_info;
@@ -2334,14 +2345,14 @@ int nrf_wifi_supp_remain_on_channel(void *if_priv, unsigned int freq,
 	}
 out:
 	k_mutex_unlock(&vif_ctx_zep->vif_lock);
-#endif /* NRF71_P2P_MODE */
+#endif /* CONFIG_NRF71_P2P_MODE */
 	return status;
 }
 
 int nrf_wifi_supp_cancel_remain_on_channel(void *if_priv, u64 cookie)
 {
 	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
-#ifdef NRF71_P2P_MODE
+#ifdef CONFIG_NRF71_P2P_MODE
 	struct nrf_wifi_vif_ctx_zep *vif_ctx_zep = NULL;
 	struct nrf_wifi_ctx_zep *rpu_ctx_zep = NULL;
 
@@ -2370,14 +2381,14 @@ int nrf_wifi_supp_cancel_remain_on_channel(void *if_priv, u64 cookie)
 	}
 out:
 	k_mutex_unlock(&vif_ctx_zep->vif_lock);
-#endif /* NRF71_P2P_MODE */
+#endif /* CONFIG_NRF71_P2P_MODE */
 	return status;
 }
 
 int nrf_wifi_supp_set_p2p_powersave(void *if_priv, int legacy_ps, int opp_ps, int ctwindow)
 {
 	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
-#ifdef NRF71_P2P_MODE
+#ifdef CONFIG_NRF71_P2P_MODE
 	struct nrf_wifi_vif_ctx_zep *vif_ctx_zep = NULL;
 	struct nrf_wifi_ctx_zep *rpu_ctx_zep = NULL;
 
@@ -2415,7 +2426,7 @@ int nrf_wifi_supp_set_p2p_powersave(void *if_priv, int legacy_ps, int opp_ps, in
 	}
 out:
 	k_mutex_unlock(&vif_ctx_zep->vif_lock);
-#endif /* NRF71_P2P_MODE */
+#endif /* CONFIG_NRF71_P2P_MODE */
 	return status;
 }
 

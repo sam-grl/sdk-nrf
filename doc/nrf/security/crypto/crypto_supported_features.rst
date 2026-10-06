@@ -2620,12 +2620,12 @@ The options are grouped by Series and drivers available for the device Series, a
                  - --
                * - CCM* no tag
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_CCM_STAR_NO_TAG`
-                 - --
-                 - --
-                 - --
-                 - --
-                 - --
-                 - --
+                 - Supported
+                 - Supported
+                 - Supported
+                 - Supported
+                 - Supported
+                 - Supported
                  - --
                  - --
                  - --
@@ -2937,6 +2937,7 @@ Based on this setting, Oberon PSA Crypto selects the most appropriate driver for
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_CBC_NO_PADDING`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_CBC_PKCS7`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_CTR`
+                   | :kconfig:option:`CONFIG_PSA_WANT_ALG_CCM_STAR_NO_TAG`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_STREAM_CIPHER`
 
          .. tab:: nrf_oberon
@@ -3326,6 +3327,8 @@ Based on this setting, Oberon PSA Crypto selects the most appropriate driver for
                  - Supported key agreement algorithms
                * - Configuration automatically generated based on the enabled key agreement algorithms. Acts as :ref:`software fallback <crypto_drivers_software_fallback>` for the other drivers.
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDH` (limited to curve types secp224r1, secp256r1, secp384r1, and Curve25519)
+
+.. _ug_crypto_supported_features_key_encapsulation_algorithms:
 
 Key encapsulation algorithms
 ============================
@@ -5458,9 +5461,6 @@ The options are grouped by Series and drivers available for the device Series, a
                * - ECDSA
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA`
                  - Supported
-               * - ECDSA without hashing
-                 - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
-                 - Supported
                * - ECDSA (deterministic)
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                  - Supported
@@ -5508,11 +5508,6 @@ The options are grouped by Series and drivers available for the device Series, a
                  - nRF52840
                * - ECDSA
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA`
-                 - Supported
-                 - Supported
-                 - Supported
-               * - ECDSA without hashing
-                 - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                  - Supported
                  - Supported
                  - Supported
@@ -5605,9 +5600,6 @@ The options are grouped by Series and drivers available for the device Series, a
                * - ECDSA
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA`
                  - Supported
-               * - ECDSA without hashing
-                 - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
-                 - Supported
                * - ECDSA (deterministic)
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                  - Supported
@@ -5653,9 +5645,6 @@ The options are grouped by Series and drivers available for the device Series, a
                  - nRF5340
                * - ECDSA
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA`
-                 - Supported
-               * - ECDSA without hashing
-                 - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                  - Supported
                * - ECDSA (deterministic)
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
@@ -5798,17 +5787,6 @@ The options are grouped by Series and drivers available for the device Series, a
                  - Supported
                  - --
                  - --
-               * - ECDSA without hashing
-                 - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
-                 - Supported
-                 - Supported
-                 - Supported
-                 - Experimental
-                 - Supported
-                 - Supported
-                 - Supported
-                 - --
-                 - --
                * - ECDSA (deterministic)
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                  - Supported
@@ -5964,10 +5942,6 @@ The options are grouped by Series and drivers available for the device Series, a
                  - --
                  - --
 
-            .. note::
-
-               For ML-DSA algorithms, CRACEN only supports signature verification.
-
          .. tab:: nrf_oberon
 
             .. list-table:: Asymmetric signature algorithm support (nrf_oberon driver) - nRF54L Series
@@ -5987,17 +5961,6 @@ The options are grouped by Series and drivers available for the device Series, a
                  - nRF54LS05B
                * - ECDSA
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA`
-                 - Supported
-                 - Supported
-                 - Supported
-                 - Experimental
-                 - Supported
-                 - Supported
-                 - Supported
-                 - Supported
-                 - Supported
-               * - ECDSA without hashing
-                 - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                  - Supported
                  - Supported
                  - Supported
@@ -6190,12 +6153,6 @@ The options are grouped by Series and drivers available for the device Series, a
                  - Supported
                  - Supported
                  - Supported
-               * - ECDSA without hashing
-                 - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
-                 - Supported
-                 - Supported
-                 - Supported
-                 - Supported
                * - ECDSA (deterministic)
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                  - Supported
@@ -6277,12 +6234,6 @@ The options are grouped by Series and drivers available for the device Series, a
                  - nRF9161
                * - ECDSA
                  - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA`
-                 - Supported
-                 - Supported
-                 - Supported
-                 - Supported
-               * - ECDSA without hashing
-                 - :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                  - Supported
                  - Supported
                  - Supported
@@ -6400,7 +6351,6 @@ Based on this setting, Oberon PSA Crypto selects the most appropriate driver for
                  - Supported asymmetric signature algorithms
                * - :kconfig:option:`CONFIG_PSA_USE_CC3XX_ASYMMETRIC_SIGNATURE_DRIVER`
                  - | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA`
-                   | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_PURE_EDDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_RSA_PSS`
@@ -6416,7 +6366,6 @@ Based on this setting, Oberon PSA Crypto selects the most appropriate driver for
                  - Supported asymmetric signature algorithms
                * - Configuration automatically generated based on the enabled asymmetric signature algorithms. Acts as :ref:`software fallback <crypto_drivers_software_fallback>` for the other drivers.
                  - | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA` (limited to ECC curve types secp224r1, secp256r1, and secp384r1)
-                   | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_PURE_EDDSA` (limited to ECC curve type Ed25519)
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_RSA_PKCS1V15_SIGN`
@@ -6443,7 +6392,6 @@ Based on this setting, Oberon PSA Crypto selects the most appropriate driver for
                  - Supported asymmetric signature algorithms
                * - :kconfig:option:`CONFIG_PSA_USE_CC3XX_ASYMMETRIC_SIGNATURE_DRIVER`
                  - | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA`
-                   | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_PURE_EDDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_RSA_PSS`
@@ -6459,7 +6407,6 @@ Based on this setting, Oberon PSA Crypto selects the most appropriate driver for
                  - Supported asymmetric signature algorithms
                * - Configuration automatically generated based on the enabled asymmetric signature algorithms. Acts as :ref:`software fallback <crypto_drivers_software_fallback>` for the other drivers.
                  - | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA` (limited to ECC curve types secp224r1, secp256r1, and secp384r1)
-                   | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_PURE_EDDSA` (limited to ECC curve type Ed25519)
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_RSA_PKCS1V15_SIGN`
@@ -6486,7 +6433,6 @@ Based on this setting, Oberon PSA Crypto selects the most appropriate driver for
                  - Supported asymmetric signature algorithms
                * - :kconfig:option:`CONFIG_PSA_USE_CRACEN_ASYMMETRIC_SIGNATURE_DRIVER`
                  - | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA`
-                   | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_PURE_EDDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_ED448PH`
@@ -6505,7 +6451,6 @@ Based on this setting, Oberon PSA Crypto selects the most appropriate driver for
                  - Supported asymmetric signature algorithms
                * - Configuration automatically generated based on the enabled asymmetric signature algorithms. Acts as :ref:`software fallback <crypto_drivers_software_fallback>` for the other drivers.
                  - | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA` (limited to ECC curve types secp224r1, secp256r1, and secp384r1)
-                   | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_PURE_EDDSA` (limited to ECC curve type Ed25519)
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_RSA_PKCS1V15_SIGN`
@@ -6532,7 +6477,6 @@ Based on this setting, Oberon PSA Crypto selects the most appropriate driver for
                  - Supported asymmetric signature algorithms
                * - :kconfig:option:`CONFIG_PSA_USE_CC3XX_ASYMMETRIC_SIGNATURE_DRIVER`
                  - | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA`
-                   | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_PURE_EDDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_RSA_PSS`
@@ -6548,7 +6492,6 @@ Based on this setting, Oberon PSA Crypto selects the most appropriate driver for
                  - Supported asymmetric signature algorithms
                * - Configuration automatically generated based on the enabled asymmetric signature algorithms. Acts as :ref:`software fallback <crypto_drivers_software_fallback>` for the other drivers.
                  - | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA` (limited to ECC curve types secp224r1, secp256r1, and secp384r1)
-                   | :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA_ANY`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA`
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_PURE_EDDSA` (limited to ECC curve type Ed25519)
                    | :kconfig:option:`CONFIG_PSA_WANT_ALG_RSA_PKCS1V15_SIGN`

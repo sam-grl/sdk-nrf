@@ -6,4 +6,10 @@
 
 mainmenu "Nordic Wi-Fi Bluetooth LE Radio test sample"
 
-rsource "../../../../samples/peripheral/radio_test/Kconfig"
+config SAMPLE_WIFI_RADIO_TEST_WIFI_ONLY
+	bool "Wi-Fi only mode"
+	help
+	  Enable Wi-Fi only radio test mode, excluding peripheral BLE radio test
+	  sources. BLE stack support remains enabled on combo chips.
+
+rsource "$(ZEPHYR_NRF_MODULE_DIR)/samples/peripheral/radio_test/Kconfig"

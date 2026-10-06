@@ -65,7 +65,7 @@ manifest:
     # https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/zephyr/guides/modules.html
     - name: zephyr
       repo-path: sdk-zephyr
-      revision: dc01a058df8bdcf968d94e3a9b4f3d1bd3ed972e
+      revision: 8ef4223c4e749ac3c8b4d9b4e831637b12b3fa9c
       import:
         # In addition to the zephyr repository itself, NCS also
         # imports the contents of zephyr/west.yml at the above
@@ -150,15 +150,15 @@ manifest:
     - name: nrfxlib
       repo-path: sdk-nrfxlib
       path: nrfxlib
-      revision: 0ee881a311722f0a9addb2bf06177f264ed781c5
+      revision: b825ef01e22744f5733ca6b27f5460cbbb19859c
     - name: trusted-firmware-m
       repo-path: sdk-trusted-firmware-m
       path: modules/tee/tf-m/trusted-firmware-m
-      revision: 347fddd88f18c87d76f1fcc9c97bf8888fb2a1ba
+      revision: 39329596a865299ff77a1f7036986ae3f8032bac
     - name: psa-arch-tests
       repo-path: sdk-psa-arch-tests
       path: modules/tee/tf-m/psa-arch-tests
-      revision: ecbccd3d793a8fb40f2bfe29ecbf94229045309a
+      revision: e643fa5ee34723fe4fc2b38a6eff570addd0a087
     - name: nrf-802154
       repo-path: sdk-nrf-802154
       path: nrf-802154
@@ -169,7 +169,7 @@ manifest:
       # Only for internal Nordic development
       repo-path: dragoon.git
       remote: dragoon
-      revision: 3e7344969ec79292fc3e33f38f56367f3ffd2050
+      revision: c9acfb06f87b8fe42f6c3423f102f589b9acd64b
       groups:
         - dragoon
     - name: cjson

@@ -24,8 +24,6 @@
 #include <cracen_trng/cracen_trng.h>
 #endif
 
-#if defined(MBEDTLS_PSA_CRYPTO_DRIVERS)
-
 #if defined(PSA_NEED_CC3XX_AEAD_DRIVER) || defined(PSA_NEED_CC3XX_ASYMMETRIC_ENCRYPTION_DRIVER) || \
 	defined(PSA_NEED_CC3XX_CIPHER_DRIVER) || defined(PSA_NEED_CC3XX_KEY_AGREEMENT_DRIVER) ||   \
 	defined(PSA_NEED_CC3XX_HASH_DRIVER) || defined(PSA_NEED_CC3XX_KEY_MANAGEMENT_DRIVER) ||    \
@@ -140,7 +138,6 @@
 #endif
 
 /* Repeat above block for each JSON-declared driver during autogeneration */
-#endif /* MBEDTLS_PSA_CRYPTO_DRIVERS */
 
 /* Auto-generated values depending on which drivers are registered.
  * ID 0 is reserved for unallocated operations.
@@ -233,8 +230,8 @@ psa_status_t psa_driver_wrapper_sign_message_with_context(
 	case PSA_KEY_LOCATION_CRACEN_KMU:
 #endif /* PSA_NEED_CRACEN_KMU_DRIVER */
 		status = cracen_sign_message(attributes, key_buffer, key_buffer_size, alg, input,
-					     input_length, signature, signature_size,
-					     signature_length);
+					     input_length, context, context_length, signature,
+					     signature_size, signature_length);
 		/* Declared with fallback == true */
 		if (status != PSA_ERROR_NOT_SUPPORTED) {
 			return status;
@@ -363,7 +360,8 @@ psa_status_t psa_driver_wrapper_sign_hash_with_context(
 	case PSA_KEY_LOCATION_CRACEN_KMU:
 #endif /* PSA_NEED_CRACEN_KMU_DRIVER */
 		status = cracen_sign_hash(attributes, key_buffer, key_buffer_size, alg, hash,
-					  hash_length, signature, signature_size, signature_length);
+					  hash_length, context, context_length, signature,
+					  signature_size, signature_length);
 		/* Declared with fallback == true */
 		if (status != PSA_ERROR_NOT_SUPPORTED) {
 			return status;

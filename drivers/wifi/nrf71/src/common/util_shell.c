@@ -17,6 +17,7 @@
 #include <system/fmac_api.h>
 #include <system/core.h>
 #include <system/wifi_util.h>
+#include <system/fmac_tx.h>
 #include <common/mac_addr.h>
 
 
@@ -272,6 +273,488 @@ static int nrf_wifi_util_show_cfg(const struct shell *sh,
 	return 0;
 }
 
+#ifdef CONFIG_NRF71_STA_MODE
+static const char *ac_str(int ac)
+{
+	static const char * const names[NRF_WIFI_FMAC_AC_MAX] = {
+		"BK", "BE", "VI", "VO", "MC"
+	};
+
+	if ((ac < 0) || (ac >= NRF_WIFI_FMAC_AC_MAX)) {
+		return "??";
+	}
+
+	return names[ac];
+}
+
+/* One line per topic: what the tokens carried, and what stopped them. */
+static void tx_token_stats_summary(const struct shell *sh,
+				   struct nrf_wifi_sys_fmac_dev_ctx *sys_dev_ctx,
+				   struct nrf_wifi_sys_fmac_priv *sys_fpriv)
+{
+	struct tx_token_stats *ts = &sys_dev_ctx->tx_config.token_stats;
+	unsigned int cap = sys_fpriv->avail_ampdu_len_per_token;
+	unsigned int tokens_used = 0;
+	unsigned int max_in_flight = 0;
+	unsigned int busy = 0;
+	unsigned int starved = 0;
+	unsigned int q_full = 0;
+	unsigned int avg_pkts_x100;
+	unsigned int avg_bytes;
+	unsigned int stops;
+	const char *limiter = "none";
+	unsigned int limiter_cnt = 0;
+	unsigned int i;
+
+	for (i = 0; i < CONFIG_NRF71_MAX_TX_TOKENS; i++) {
+		if (ts->token_cmds[i]) {
+			tokens_used++;
+		}
+	}
+
+	for (i = 0; i < NRF_WIFI_FMAC_AC_MAX; i++) {
+		if (ts->max_outstanding_descs[i] > max_in_flight) {
+			max_in_flight = ts->max_outstanding_descs[i];
+		}
+		busy += ts->token_get_busy[i];
+		starved += ts->token_get_starved[i];
+		q_full += ts->pend_q_full_drops[i];
+	}
+
+	avg_pkts_x100 = ts->tx_cmds ?
+		(unsigned int)((ts->tx_cmd_pkts * 100ULL) / ts->tx_cmds) : 0U;
+	avg_bytes = ts->tx_cmds ? (unsigned int)(ts->tx_cmd_bytes / ts->tx_cmds) : 0U;
+
+	stops = ts->aggr_stop_size + ts->aggr_stop_count + ts->aggr_stop_mismatch +
+		ts->aggr_stop_twt + ts->aggr_stop_q_empty;
+
+	/* aggr_stop_q_empty only means the pending queue was drained by this
+	 * command, which is the normal case; the host is only really failing to
+	 * keep up if the token had to be returned to the free pool for lack of
+	 * packets (token_acq) or if the pipe ran idle.
+	 */
+	if (ts->aggr_stop_count > limiter_cnt) {
+		limiter_cnt = ts->aggr_stop_count;
+		limiter = "aggr count cap";
+	}
+	if (ts->aggr_stop_size > limiter_cnt) {
+		limiter_cnt = ts->aggr_stop_size;
+		limiter = "token size cap";
+	}
+	if (ts->aggr_stop_mismatch > limiter_cnt) {
+		limiter_cnt = ts->aggr_stop_mismatch;
+		limiter = "SA/RA mismatch";
+	}
+	if (ts->aggr_stop_twt > limiter_cnt) {
+		limiter_cnt = ts->aggr_stop_twt;
+		limiter = "TWT sleep";
+	}
+
+	if (ts->pipe_idle_us > ts->pipe_busy_us) {
+		limiter = "host out of pkts";
+		limiter_cnt = stops;
+	} else if (limiter_cnt == 0) {
+		limiter = "RPU turnaround";
+		limiter_cnt = stops;
+	}
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "TX: %u cmds, %u pkts, %u dones | %u.%02u pkts/cmd (cap %u), "
+		      "%u B/cmd (%u%% of %u B cap), %u B/pkt\n",
+		      ts->tx_cmds,
+		      ts->tx_cmd_pkts,
+		      ts->tx_dones,
+		      avg_pkts_x100 / 100U,
+		      avg_pkts_x100 % 100U,
+		      sys_fpriv->data_config.max_tx_aggregation,
+		      avg_bytes,
+		      cap ? ((avg_bytes * 100U) / cap) : 0U,
+		      cap,
+		      ts->tx_cmd_pkts ?
+			      (unsigned int)(ts->tx_cmd_data_bytes / ts->tx_cmd_pkts) : 0U);
+	shell_fprintf(sh, SHELL_INFO,
+		      "    tokens: %u of %u used, %u max in flight, %u busy, %u starved | "
+		      "limiter: %s (%u%%)\n",
+		      tokens_used,
+		      sys_fpriv->num_tx_tokens,
+		      max_in_flight,
+		      busy,
+		      starved,
+		      limiter,
+		      stops ? ((limiter_cnt * 100U) / stops) : 0U);
+	if (ts->tx_cmds) {
+		unsigned long long inflight_us = 0;
+		unsigned long long busy_us = ts->pipe_busy_us;
+		unsigned int window_us = ts->window_start_cyc ?
+			k_cyc_to_us_floor32(k_cycle_get_32() - ts->window_start_cyc) : 0U;
+
+		for (i = 0; i < CONFIG_NRF71_MAX_TX_TOKENS; i++) {
+			inflight_us += ts->token_inflight_us[i];
+		}
+
+		/* Concurrency and rate are computed over the time the pipe was
+		 * actually busy, so an idle period before the traffic started
+		 * does not dilute them; busy%% is against the window since the
+		 * counters were cleared, so clear right before a run.
+		 */
+		shell_fprintf(sh, SHELL_INFO,
+			      "    turnaround: %u us/cmd, %u.%02u cmds in flight while busy "
+			      "(max %u), %u KB/s in flight\n",
+			      (unsigned int)(inflight_us / ts->tx_cmds),
+			      busy_us ? (unsigned int)(inflight_us / busy_us) : 0U,
+			      busy_us ? (unsigned int)((inflight_us * 100ULL / busy_us) % 100U) :
+					0U,
+			      ts->max_cmds_in_flight,
+			      busy_us ? (unsigned int)((ts->tx_cmd_bytes * 1000ULL) / busy_us) :
+					0U);
+		shell_fprintf(sh, SHELL_INFO,
+			      "    pipe: busy %llu ms, idle %llu ms, busy %u%% of the "
+			      "%u ms window since clear\n",
+			      ts->pipe_busy_us / 1000ULL,
+			      ts->pipe_idle_us / 1000ULL,
+			      window_us ? (unsigned int)((ts->pipe_busy_us * 100ULL) /
+							 window_us) : 0U,
+			      window_us / 1000U);
+	}
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "    host: %u pkts in, %u held on pend_q (%u%%), drops: %u q_full, "
+		      "%u other%s\n",
+		      ts->if_send_calls,
+		      ts->pkts_queued,
+		      ts->if_send_accepted ?
+			      ((ts->pkts_queued * 100U) / ts->if_send_accepted) : 0U,
+		      q_full,
+		      ts->if_drop_no_nbuf + ts->if_drop_unknown_peer + ts->if_drop_not_ready,
+		      starved ? " | STARVED, see -v" : "");
+}
+
+static void tx_token_stats_dump(const struct shell *sh,
+				struct nrf_wifi_sys_fmac_dev_ctx *sys_dev_ctx,
+				struct nrf_wifi_sys_fmac_priv *sys_fpriv)
+{
+	struct tx_token_stats *ts = &sys_dev_ctx->tx_config.token_stats;
+	unsigned int num_tx_tokens = sys_fpriv->num_tx_tokens;
+	unsigned int num_tx_tokens_per_ac = sys_fpriv->num_tx_tokens_per_ac;
+	unsigned int cap = sys_fpriv->avail_ampdu_len_per_token;
+	unsigned int max_aggr = sys_fpriv->data_config.max_tx_aggregation;
+	unsigned int total_gets = 0;
+	unsigned int total_busy = 0;
+	unsigned int total_starved = 0;
+	unsigned int aggr_stops;
+	unsigned int i;
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "\n--- Per-token efficiency ---\n"
+		      "tokens: %u (reserved/AC: %u, spare: %u), "
+		      "caps: %u B/token, %u pkts/token\n",
+		      num_tx_tokens,
+		      num_tx_tokens_per_ac,
+		      num_tx_tokens - (num_tx_tokens_per_ac * NRF_WIFI_FMAC_AC_MAX),
+		      cap,
+		      max_aggr);
+	shell_fprintf(sh, SHELL_INFO,
+		      "bytes = packet data + %u B headroom per packet, i.e. what is\n"
+		      "budgeted against the per-token size cap; acq = times the token was\n"
+		      "taken from the free pool (a busy token is re-used in TX done and is\n"
+		      "not returned, so acq stays low while cmds keeps rising)\n",
+		      TX_BUF_HEADROOM);
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "%-4s %6s %8s %9s %8s %9s %5s %8s %9s %8s %8s %6s %s\n",
+		      "tok", "acq", "cmds", "pkts", "pkts/cmd", "bytes/cmd",
+		      "fill", "max_pkts", "max_bytes", "us/cmd", "max_us", "KB/s",
+		      "type");
+
+	for (i = 0; i < num_tx_tokens && i < CONFIG_NRF71_MAX_TX_TOKENS; i++) {
+		unsigned int cmds = ts->token_cmds[i];
+		unsigned int pkts_x100 = cmds ? ((ts->token_pkts[i] * 100U) / cmds) : 0U;
+		unsigned int bytes_per_cmd = cmds ?
+			(unsigned int)(ts->token_bytes[i] / cmds) : 0U;
+		bool spare = (i >= (num_tx_tokens_per_ac * NRF_WIFI_FMAC_AC_MAX));
+
+		unsigned int us_per_cmd = cmds ?
+			(unsigned int)(ts->token_inflight_us[i] / cmds) : 0U;
+
+		shell_fprintf(sh, SHELL_INFO,
+			      "%-4u %6u %8u %9u %5u.%02u %9u %4u%% %8u %9u %8u %8u %6u %s\n",
+			      i,
+			      ts->token_acq[i],
+			      cmds,
+			      ts->token_pkts[i],
+			      pkts_x100 / 100U,
+			      pkts_x100 % 100U,
+			      bytes_per_cmd,
+			      cap ? ((bytes_per_cmd * 100U) / cap) : 0U,
+			      ts->token_max_pkts[i],
+			      ts->token_max_bytes[i],
+			      us_per_cmd,
+			      ts->token_max_inflight_us[i],
+			      ts->token_inflight_us[i] ?
+				      (unsigned int)((ts->token_bytes[i] * 1000ULL) /
+						     ts->token_inflight_us[i]) : 0U,
+			      spare ? "spare" : ac_str(i % NRF_WIFI_FMAC_AC_MAX));
+	}
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "\n--- Aggregation: packets per TX command ---\n");
+
+	for (i = 0; i < MAX_TX_AGG_SIZE; i++) {
+		if (ts->pkts_per_cmd[i] == 0) {
+			continue;
+		}
+
+		shell_fprintf(sh, SHELL_INFO,
+			      "%2u pkt(s) - %u cmd(s) (%u.%02u%%)\n",
+			      i + 1,
+			      ts->pkts_per_cmd[i],
+			      ts->tx_cmds ?
+				      ((ts->pkts_per_cmd[i] * 100U) / ts->tx_cmds) : 0U,
+			      ts->tx_cmds ?
+				      (((ts->pkts_per_cmd[i] * 10000U) / ts->tx_cmds) % 100U) :
+				      0U);
+	}
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "\n--- Aggregation: token fill level (%% of %u B cap) ---\n",
+		      cap);
+
+	for (i = 0; i < TX_TOKEN_FILL_BUCKETS; i++) {
+		if (ts->fill_hist[i] == 0) {
+			continue;
+		}
+
+		shell_fprintf(sh, SHELL_INFO,
+			      "%3u-%3u%% - %u cmd(s)\n",
+			      i * (100U / TX_TOKEN_FILL_BUCKETS),
+			      (i + 1) * (100U / TX_TOKEN_FILL_BUCKETS),
+			      ts->fill_hist[i]);
+	}
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "\nTX cmds: %u, pkts: %u, data: %llu B, occupancy: %llu B, "
+		      "max cmd: %u B\n",
+		      ts->tx_cmds,
+		      ts->tx_cmd_pkts,
+		      ts->tx_cmd_data_bytes,
+		      ts->tx_cmd_bytes,
+		      ts->max_cmd_bytes);
+	shell_fprintf(sh, SHELL_INFO,
+		      "TX dones: %u, pipe busy: %llu us, idle: %llu us, "
+		      "max cmds in flight: %u\n",
+		      ts->tx_dones,
+		      ts->pipe_busy_us,
+		      ts->pipe_idle_us,
+		      ts->max_cmds_in_flight);
+
+	if (ts->tx_cmds) {
+		unsigned int avg_pkts_x100 = (unsigned int)((ts->tx_cmd_pkts * 100ULL) /
+							    ts->tx_cmds);
+		unsigned int avg_bytes = (unsigned int)(ts->tx_cmd_bytes / ts->tx_cmds);
+		unsigned int avg_pkt_len = ts->tx_cmd_pkts ?
+			(unsigned int)(ts->tx_cmd_data_bytes / ts->tx_cmd_pkts) : 0U;
+
+		shell_fprintf(sh, SHELL_INFO,
+			      "avg_tx pkts/TX cmd: %u.%02u (of %u), "
+			      "avg bytes/TX cmd: %u (%u%% of cap), avg pkt: %u B\n",
+			      avg_pkts_x100 / 100U,
+			      avg_pkts_x100 % 100U,
+			      max_aggr,
+			      avg_bytes,
+			      cap ? ((avg_bytes * 100U) / cap) : 0U,
+			      avg_pkt_len);
+	} else {
+		shell_fprintf(sh, SHELL_INFO, "avg_tx pkts/TX cmd: n/a\n");
+	}
+
+	aggr_stops = ts->aggr_stop_size + ts->aggr_stop_count + ts->aggr_stop_mismatch +
+		     ts->aggr_stop_twt + ts->aggr_stop_q_empty;
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "\n--- Why aggregation stopped (%u events) ---\n",
+		      aggr_stops);
+	shell_fprintf(sh, SHELL_INFO,
+		      "size cap hit   : %u\n"
+		      "count cap hit  : %u\n"
+		      "SA/RA mismatch : %u\n"
+		      "TWT sleep      : %u\n"
+		      "pend_q empty   : %u\n"
+		      "forced single  : %u\n",
+		      ts->aggr_stop_size,
+		      ts->aggr_stop_count,
+		      ts->aggr_stop_mismatch,
+		      ts->aggr_stop_twt,
+		      ts->aggr_stop_q_empty,
+		      ts->aggr_forced_single);
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "\n--- Per-AC token accounting ---\n"
+		      "a token is requested for every packet handed to the driver, so once\n"
+		      "the tokens of an AC are in flight every further request is 'busy'\n"
+		      "and the packet waits on the pending queue for a TX done; only\n"
+		      "'starved' (no token while the AC has nothing in flight) is a fault\n");
+	shell_fprintf(sh, SHELL_INFO,
+		      "%-4s %9s %7s %10s %8s %8s %9s %7s %7s\n",
+		      "ac", "reserved", "spare", "busy", "starved", "in_fl",
+		      "max_in_fl", "max_q", "q_full");
+
+	for (i = 0; i < NRF_WIFI_FMAC_AC_MAX; i++) {
+		total_gets += ts->reserved_token_get[i] + ts->spare_token_get[i];
+		total_busy += ts->token_get_busy[i];
+		total_starved += ts->token_get_starved[i];
+
+		shell_fprintf(sh, SHELL_INFO,
+			      "%-4s %9u %7u %10u %8u %8u %9u %7u %7u\n",
+			      ac_str(i),
+			      ts->reserved_token_get[i],
+			      ts->spare_token_get[i],
+			      ts->token_get_busy[i],
+			      ts->token_get_starved[i],
+			      sys_dev_ctx->tx_config.outstanding_descs[i],
+			      ts->max_outstanding_descs[i],
+			      ts->max_pending_qlen[i],
+			      ts->pend_q_full_drops[i]);
+	}
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "token gets: %u, busy: %u, starved: %u, spare AC switches: %u\n",
+		      total_gets,
+		      total_busy,
+		      total_starved,
+		      ts->spare_token_ac_switch);
+	shell_fprintf(sh, SHELL_INFO,
+		      "token re-use: %u.%02u TX done(s) per token get\n",
+		      total_gets ? (ts->tx_dones / total_gets) : 0U,
+		      total_gets ? (((ts->tx_dones * 100U) / total_gets) % 100U) : 0U);
+
+	shell_fprintf(sh, SHELL_INFO,
+		      "\n--- Host TX path ---\n");
+	shell_fprintf(sh, SHELL_INFO,
+		      "if_send calls: %u, accepted: %u\n",
+		      ts->if_send_calls,
+		      ts->if_send_accepted);
+	shell_fprintf(sh, SHELL_INFO,
+		      "of which held on the pending queue (no token/aggregating/PS): %u "
+		      "(%u%%)\n",
+		      ts->pkts_queued,
+		      ts->if_send_accepted ?
+			      ((ts->pkts_queued * 100U) / ts->if_send_accepted) : 0U);
+	shell_fprintf(sh, SHELL_INFO,
+		      "if_send drops: no_nbuf: %u, unknown_peer: %u, not_ready: %u, "
+		      "fmac_fail: %u\n",
+		      ts->if_drop_no_nbuf,
+		      ts->if_drop_unknown_peer,
+		      ts->if_drop_not_ready,
+		      ts->if_drop_fmac_fail);
+	shell_fprintf(sh, SHELL_INFO,
+		      "host pkts: tx: %llu, tx_done: %llu, tx_drop: %llu\n",
+		      (unsigned long long)sys_dev_ctx->host_stats.total_tx_pkts,
+		      (unsigned long long)sys_dev_ctx->host_stats.total_tx_done_pkts,
+		      (unsigned long long)sys_dev_ctx->host_stats.total_tx_drop_pkts);
+}
+
+static int nrf_wifi_util_tx_stats(const struct shell *sh,
+				  size_t argc,
+				  const char *argv[])
+{
+	int vif_index = -1;
+	int peer_index = 0;
+	int max_vif_index = MAX(MAX_NUM_APS, MAX_NUM_STAS);
+	struct nrf_wifi_fmac_dev_ctx *fmac_dev_ctx = NULL;
+	struct nrf_wifi_sys_fmac_priv *sys_fpriv = NULL;
+	unsigned int tx_pending_pkts = 0;
+	struct nrf_wifi_sys_fmac_dev_ctx *sys_dev_ctx = NULL;
+	bool clear = false;
+	bool verbose = false;
+	int ret;
+
+	for (size_t i = 2; i < argc; i++) {
+		if (strcmp(argv[i], "clear") == 0) {
+			clear = true;
+		} else if (strcmp(argv[i], "-v") == 0) {
+			verbose = true;
+		} else {
+			shell_fprintf(sh,
+				      SHELL_ERROR,
+				      "Invalid argument \"%s\".\n",
+				      argv[i]);
+			shell_help(sh);
+			return -ENOEXEC;
+		}
+	}
+
+	vif_index = atoi(argv[1]);
+	if ((vif_index < 0) || (vif_index >= max_vif_index)) {
+		shell_fprintf(sh,
+			      SHELL_ERROR,
+			      "Invalid vif index(%d).\n",
+			      vif_index);
+		shell_help(sh);
+		return -ENOEXEC;
+	}
+
+	k_mutex_lock(&ctx->rpu_lock, K_FOREVER);
+	if (!ctx->rpu_ctx) {
+		shell_fprintf(sh,
+			      SHELL_ERROR,
+			      "RPU context not initialized\n");
+		ret = -ENOEXEC;
+		goto unlock;
+	}
+
+	fmac_dev_ctx = ctx->rpu_ctx;
+	sys_dev_ctx = wifi_dev_priv(fmac_dev_ctx);
+	sys_fpriv = wifi_fmac_priv(fmac_dev_ctx->fpriv);
+
+	if (clear) {
+		memset(&sys_dev_ctx->tx_config.token_stats,
+		       0,
+		       sizeof(sys_dev_ctx->tx_config.token_stats));
+		sys_dev_ctx->tx_config.token_stats.window_start_cyc = k_cycle_get_32();
+		shell_fprintf(sh,
+			      SHELL_INFO,
+			      "TX token stats cleared\n");
+		ret = 0;
+		goto unlock;
+	}
+
+	if (!verbose) {
+		tx_token_stats_summary(sh, sys_dev_ctx, sys_fpriv);
+		ret = 0;
+		goto unlock;
+	}
+
+	/* TODO: Get peer_index from shell once AP mode is supported */
+	shell_fprintf(sh,
+		SHELL_INFO,
+		"************* Tx Stats: vif(%d) peer(0) ***********\n",
+		vif_index);
+
+	for (int i = 0; i < NRF_WIFI_FMAC_AC_MAX ; i++) {
+		tx_pending_pkts = (unsigned int)sys_dlist_len(
+			&sys_dev_ctx->tx_config.pend_pkt_q[peer_index][i]);
+
+		shell_fprintf(
+			sh,
+			SHELL_INFO,
+			"Outstanding tokens: ac: %d (%s) -> %d (pending_q_len: %d)\n",
+			i,
+			ac_str(i),
+			sys_dev_ctx->tx_config.outstanding_descs[i],
+			tx_pending_pkts);
+	}
+
+	tx_token_stats_dump(sh, sys_dev_ctx, sys_fpriv);
+
+	ret = 0;
+
+unlock:
+	k_mutex_unlock(&ctx->rpu_lock);
+	return ret;
+}
+#endif /* CONFIG_NRF71_STA_MODE */
+
+
 static int nrf_wifi_util_tx_rate(const struct shell *sh,
 				 size_t argc,
 				 const char *argv[])
@@ -460,6 +943,68 @@ unlock:
 }
 #endif /* CONFIG_NRF_WIFI_RPU_RECOVERY */
 
+static int nrf_wifi_util_req_extended_sleep(const struct shell *sh,
+					    size_t argc,
+					    const char *argv[])
+{
+	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
+	char *ptr = NULL;
+	unsigned long long val = 0;
+	int ret = 0;
+
+	if (argv[1][0] == '-') {
+		shell_fprintf(sh,
+			      SHELL_ERROR,
+			      "Invalid value(%s).\n",
+			      argv[1]);
+		shell_help(sh);
+		return -ENOEXEC;
+	}
+
+	val = strtoull(argv[1], &ptr, 10);
+
+	if ((ptr == argv[1]) || (*ptr != '\0') || (val > UINT_MAX)) {
+		shell_fprintf(sh,
+			      SHELL_ERROR,
+			      "Invalid value(%s).\n",
+			      argv[1]);
+		shell_help(sh);
+		return -ENOEXEC;
+	}
+
+	k_mutex_lock(&ctx->rpu_lock, K_FOREVER);
+	if (!ctx->rpu_ctx) {
+		shell_fprintf(sh,
+			      SHELL_ERROR,
+			      "RPU context not initialized\n");
+		ret = -ENOEXEC;
+		goto unlock_sleep;
+	}
+
+	status = nrf_wifi_fmac_req_extended_sleep(ctx->rpu_ctx,
+						  0,
+						  (unsigned int)val);
+
+	if (status != NRF_WIFI_STATUS_SUCCESS) {
+		shell_fprintf(sh,
+			      SHELL_ERROR,
+			      "Programming extended_sleep failed\n");
+		ret = -ENOEXEC;
+		goto unlock_sleep;
+	}
+
+	ctx->extended_sleep_sec = (unsigned int)val;
+
+	shell_fprintf(sh,
+		      SHELL_INFO,
+		      "Requested extended sleep of %u seconds\n",
+		      (unsigned int)val);
+
+unlock_sleep:
+	k_mutex_unlock(&ctx->rpu_lock);
+	return ret;
+}
+
 static void nrf_wifi_util_dump_mac_addr_slots(const struct shell *sh, bool uicr)
 {
 	const char *block = uicr ? "UICR" : "FICR";
@@ -525,68 +1070,6 @@ static int nrf_wifi_util_mac_addr(const struct shell *sh, size_t argc, char **ar
 	return 0;
 }
 
-static int nrf_wifi_util_req_extended_sleep(const struct shell *sh,
-					    size_t argc,
-					    const char *argv[])
-{
-	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
-	char *ptr = NULL;
-	unsigned long long val = 0;
-	int ret = 0;
-
-	if (argv[1][0] == '-') {
-		shell_fprintf(sh,
-			      SHELL_ERROR,
-			      "Invalid value(%s).\n",
-			      argv[1]);
-		shell_help(sh);
-		return -ENOEXEC;
-	}
-
-	val = strtoull(argv[1], &ptr, 10);
-
-	if ((ptr == argv[1]) || (*ptr != '\0') || (val > UINT_MAX)) {
-		shell_fprintf(sh,
-			      SHELL_ERROR,
-			      "Invalid value(%s).\n",
-			      argv[1]);
-		shell_help(sh);
-		return -ENOEXEC;
-	}
-
-	k_mutex_lock(&ctx->rpu_lock, K_FOREVER);
-	if (!ctx->rpu_ctx) {
-		shell_fprintf(sh,
-			      SHELL_ERROR,
-			      "RPU context not initialized\n");
-		ret = -ENOEXEC;
-		goto unlock_sleep;
-	}
-
-	status = nrf_wifi_fmac_req_extended_sleep(ctx->rpu_ctx,
-						  0,
-						  (unsigned int)val);
-
-	if (status != NRF_WIFI_STATUS_SUCCESS) {
-		shell_fprintf(sh,
-			      SHELL_ERROR,
-			      "Programming extended_sleep failed\n");
-		ret = -ENOEXEC;
-		goto unlock_sleep;
-	}
-
-	ctx->extended_sleep_sec = (unsigned int)val;
-
-	shell_fprintf(sh,
-		      SHELL_INFO,
-		      "Requested extended sleep of %u seconds\n",
-		      (unsigned int)val);
-
-unlock_sleep:
-	k_mutex_unlock(&ctx->rpu_lock);
-	return ret;
-}
-
 SHELL_STATIC_SUBCMD_SET_CREATE(
 	nrf71_util,
 	SHELL_CMD_ARG(he_ltf,
@@ -626,6 +1109,19 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 		      nrf_wifi_util_show_cfg,
 		      1,
 		      0),
+#ifdef CONFIG_NRF71_STA_MODE
+	SHELL_CMD_ARG(tx_stats,
+		      NULL,
+		      "Displays a TX statistics summary: aggregation, token usage\n"
+		      "and what is limiting the TX path\n"
+		      "Parameters:\n"
+		      "    vif_index: 0 - 1\n"
+		      "    -v       : (optional) full per-token, histogram and per-AC dump\n"
+		      "    clear    : (optional) reset the TX token counters\n",
+		      nrf_wifi_util_tx_stats,
+		      2,
+		      2),
+#endif /* CONFIG_NRF71_STA_MODE */
 	SHELL_CMD_ARG(tx_rate,
 		      NULL,
 		      "Sets TX data rate to either a fixed value or AUTO\n"

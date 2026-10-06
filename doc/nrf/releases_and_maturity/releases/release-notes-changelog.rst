@@ -142,6 +142,7 @@ Developing with PMICs
 Developing with Front-End Modules
 =================================
 
+* Added experimental support for TX/RX bypass for the SKY66409-11 FEM on the nRF54L Series devices.
 * Removed support for the nRF2220 Front-End Module (FEM).
 
 Developing with custom boards
@@ -157,7 +158,7 @@ Security
   * The :kconfig:option:`CONFIG_TFM_LOG_NS_MEMORY_LAYOUT` Kconfig option, which allows printing the configuration of the Secure Attribution Unit (SAU) and the Memory Protection Controller (MPC) during the initialization of TF-M on the nRF54L Series devices.
     See also :ref:`ug_tfm_logging` for more information.
   * Support for the SHAKE-128 and SHAKE-256 eXtendable Output Functions (XOF) in the CRACEN driver.
-  * Support for signature verification with ML-DSA-44, ML-DSA-65, and ML-DSA-87 when using the CRACEN driver.
+  * Support for signature generation and verification with the ML-DSA-44, ML-DSA-65, and ML-DSA-87 algorithms when using the CRACEN driver.
   * Support for key encapsulation and decapsulation with ML-KEM-512, ML-KEM-768, and ML-KEM-1024 when using the CRACEN driver.
 
 * Updated:
@@ -166,6 +167,38 @@ Security
     The new version has minor updates in internal APIs, restructures the directory hierarchy, and improves native support for built-in keys.
   * nrf_cc3xx_platform and nrf_cc3xx_mbedcrypto libraries to version v0.9.23.
     Improved PSA driver error reporting and fixed an issue that caused incorrect authentication tag generation in GCM when multiple calls to :c:func:`psa_aead_update_ad` were made.
+
+* Fixed:
+
+  * The :kconfig:option:`CONFIG_MBEDTLS_X509_REMOVE_INFO` Kconfig option, which had no effect.
+    It now defaults to ``n``.
+  * The following Kconfig options, which were not passed to the PSA Crypto core:
+
+    * :kconfig:option:`CONFIG_PSA_WANT_ALG_XCHACHA20_POLY1305`
+    * :kconfig:option:`CONFIG_PSA_WANT_KEY_TYPE_XCHACHA20`
+    * :kconfig:option:`CONFIG_PSA_WANT_ALG_SHAKE128_256`
+    * :kconfig:option:`CONFIG_PSA_WANT_ALG_SHAKE256_192`
+    * :kconfig:option:`CONFIG_PSA_WANT_ALG_SHAKE256_256`
+    * :kconfig:option:`CONFIG_PSA_WANT_ALG_SHA_256_192`
+    * :kconfig:option:`CONFIG_PSA_WANT_KEY_TYPE_LMS_PUBLIC_KEY`
+    * :kconfig:option:`CONFIG_PSA_WANT_KEY_TYPE_HSS_PUBLIC_KEY`
+    * :kconfig:option:`CONFIG_PSA_WANT_KEY_TYPE_XMSS_PUBLIC_KEY`
+    * :kconfig:option:`CONFIG_PSA_WANT_KEY_TYPE_XMSS_MT_PUBLIC_KEY`
+
+* Removed:
+
+  * The following Kconfig options, which had no effect:
+
+    * ``CONFIG_MBEDTLS_SSL_EXPORT_KEYS``
+    * ``CONFIG_MBEDTLS_X509_CHECK_KEY_USAGE``
+    * ``CONFIG_MBEDTLS_X509_CHECK_EXTENDED_KEY_USAGE``
+    * ``CONFIG_MBEDTLS_SSL_DTLS_BADMAC_LIMIT``
+    * ``CONFIG_PSA_WANT_ALG_CHACHA20``
+    * ``CONFIG_PSA_WANT_ECC_SECT_R1_233``, ``CONFIG_PSA_WANT_ECC_SECT_R1_283``, ``CONFIG_PSA_WANT_ECC_SECT_R1_409``, and ``CONFIG_PSA_WANT_ECC_SECT_R1_571``
+    * ``CONFIG_PSA_WANT_KEY_TYPE_PEPPER``
+
+  * The ``CONFIG_PSA_WANT_ALG_ECDSA_ANY`` Kconfig option.
+    Use the :kconfig:option:`CONFIG_PSA_WANT_ALG_ECDSA` Kconfig option instead, which also enables ``PSA_ALG_ECDSA_ANY``.
 
 Security libraries
 ------------------
@@ -229,9 +262,17 @@ DECT NR+
   * The :kconfig:option:`CONFIG_DECT_MDM_RX_PRIVATE_POOL` Kconfig option to the nRF91 Series DECT modem driver to allocate DECT RX ``net_pkt``/``net_buf`` from a DECT-only pool isolated from the global RX pools, so that RX bursts on another interface (for example, the tethering GW's Ethernet host leg) cannot starve DECT NR+ RX.
     Pool size is tunable through the ``CONFIG_DECT_MDM_RX_PRIVATE_{PKT,BUF}_COUNT`` and ``_BUF_SIZE`` Kconfig options, and pool usage can be printed with the new ``dect_mdm rx_pool`` shell command.
 
-* Updated by improving half-closed association recovery in the nRF91 DECT driver and L2 stack (DLC discard timer, ``RD_NOT_FOUND``, L2 table full).
-  The :c:func:`dect_net_l2_child_association_created` function now returns ``int``; check for ``-ENOSPC`` and release the MAC association.
-  The :c:struct:`dect_settings` structure is extended with ``DECT_SETTINGS_WRITE_SCOPE_DLC`` write scope and ``rach_conf_resp_win_length`` field.
+  * The DECT ICMPv6 ping shell library (:kconfig:option:`CONFIG_DECT_ICMP_PING_LIB`), extracted from the :ref:`dect_shell_application` sample's ``ping`` command, that registers the same top-level ``ping`` shell for IPv6 ICMP echo on DECT NR+ interfaces.
+    A hidden :kconfig:option:`CONFIG_DECT_NET_LIBS` gate is set automatically when a DECT network library is selected.
+    It enables the shared ``subsys/net/lib/dect/`` build, while each library (including ping) still requires its own Kconfig symbol.
+
+* Updated:
+
+  * The shared DECT shell print callback type.
+    ``dect_net_l2_shell_print_fns`` was renamed to :c:struct:`dect_net_lib_shell_print_fns` and moved into the :file:`dect_net_lib_shell.h` file for :kconfig:option:`CONFIG_DECT_L2_SHELL_LIB` and :kconfig:option:`CONFIG_DECT_ICMP_PING_LIB`.
+  * By improving half-closed association recovery in the nRF91 DECT driver and L2 stack (DLC discard timer, ``RD_NOT_FOUND``, L2 table full).
+    The :c:func:`dect_net_l2_child_association_created` function now returns ``int``; check for ``-ENOSPC`` and release the MAC association.
+    The :c:struct:`dect_settings` structure is extended with ``DECT_SETTINGS_WRITE_SCOPE_DLC`` write scope and ``rach_conf_resp_win_length`` field.
 
 * Fixed the DLC TX transaction ID wrap on retry and made the cluster RACH response window length configurable through ``dect sett``.
 
@@ -348,6 +389,15 @@ nRF Desktop
     * ``nrf54ls05dk/nrf54ls05b/cpuapp``
 
     The configurations act as a HID mouse peripheral with HID SCI support.
+  * The ``hid_sci_keyboard`` and ``release_hid_sci_keyboard`` build types for the following board targets:
+
+    * ``nrf54l15dk/nrf54l05/cpuapp``
+    * ``nrf54l15dk/nrf54l10/cpuapp``
+    * ``nrf54l15dk/nrf54l15/cpuapp``
+    * ``nrf54ls05dk/nrf54ls05a/cpuapp``
+    * ``nrf54ls05dk/nrf54ls05b/cpuapp``
+
+    The configurations act as a HID keyboard peripheral with HID SCI support.
   * LLPM dongle application configurations for the nRF54LM20 DK (``nrf54lm20dk/nrf54lm20a/cpuapp`` and ``nrf54lm20dk/nrf54lm20b/cpuapp`` board targets).
   * The :kconfig:option:`CONFIG_NCS_MCUBOOT_DISCARDS_HEADER_IN_SECONDARY_MCUBOOT` Kconfig option that allows to drop the MCUboot image header in secondary MCUboot image update, when the update is installed to a designated slot by MCUboot.
     If the option is off for compatibility, MCUboot cannot update itself with MCUboot that was built with the option enabled.
@@ -384,6 +434,10 @@ This section provides detailed lists of changes by :ref:`sample <samples>`.
 
 Bluetooth samples
 -----------------
+
+* :ref:`central_nfc_pairing` and :ref:`peripheral_nfc_pairing` samples:
+
+  * Removed support for the nRF52 Series devices.
 
 * Added the :ref:`ble_channel_classification` sample that demonstrates peripheral-initiated channel classification reports and the central applying them as the channel map.
 
@@ -491,6 +545,7 @@ Cryptography samples
 
   * Support for the nRF54LC10A SoC (with and without TF-M) in the crypto samples.
   * The :ref:`crypto_ml_dsa` sample.
+  * The :ref:`crypto_ml_kem` sample.
 
 Debug samples
 -------------
@@ -542,7 +597,9 @@ DECT NR+ samples
     * The :file:`dect_rx_pool.conf` configuration file that enables :kconfig:option:`CONFIG_DECT_MDM_RX_PRIVATE_POOL` with sink/FT-tuned pool sizes, so that DECT NR+ uplink RX bursts no longer starve the shared global RX pools, and rebalance the global TX/RX pool sizes to match observed usage.
     * The :file:`dlc_resilient.conf` configuration file for a loss-resilient DLC profile when using the Ethernet sink mode.
 
-  * Updated ``ping`` to use the Zephyr ``net_icmp`` API (IPv6).
+  * Updated ``ping`` to use the Zephyr ``net_icmp`` API (IPv6) and moved it into the location defined by the :kconfig:option:`CONFIG_DECT_ICMP_PING_LIB` Kconfig option.
+    The sample selects the library, wires :c:struct:`dect_net_lib_shell_print_fns`, and aborts handling.
+
   * Fixed the routing logs.
     They are now available through the shell backend only.
 
@@ -685,10 +742,20 @@ Networking samples
     * The HTTP response to GET requests.
       An extra blank line after the ``Content-Type`` header terminated the header section early, putting the ``Content-Length`` header in the response body.
 
+* :ref:`nrf_coap_server_sample` sample:
+
+  * Added a dedicated sample documentation page, and updated the :file:`wifi_zephyr.rst` page to link to it instead of the Zephyr sample documentation.
+  * Updated the test scenarios in the :file:`sample.yaml` file to cover the nRF7002 DK, IPv6, and secure CoAP (DTLS) builds.
+
+* :ref:`nrf_mqtt_sn_publisher_sample` sample:
+
+  * Added a dedicated sample documentation page, and updated the :file:`wifi_zephyr.rst` page to link to it instead of the Zephyr sample documentation.
+  * Updated the test scenario in the :file:`sample.yaml` file to cover the nRF7002 DK build.
+
 NFC samples
 -----------
 
-|no_changes_yet_note|
+* Removed support for the nRF52 Series devices in the NFC samples.
 
 nRF5340 samples
 ---------------
@@ -705,6 +772,14 @@ nRF93M1 DK samples
 
 Peripheral samples
 ------------------
+
+* :ref:`802154_phy_test` sample:
+
+  * Removed support for the nRF52 Series devices.
+
+* :ref:`802154_sniffer` sample:
+
+  * Removed support for the nRF52 Series devices.
 
 * :ref:`radio_test` sample:
 
@@ -768,6 +843,15 @@ Thread samples
 
 Wi-Fi samples
 -------------
+
+* :ref:`wifi_shutdown_sample` sample:
+
+  * Added the ``nrf71-idle-power``, ``nrf71-idle-power-quiet``, and ``nrf71-idle-power-diag`` snippets, which use the new :ref:`lib_nrf71_idle_power` library to measure the host idle current of the nRF71 Series device in One-shot mode.
+
+* :ref:`wifi_station_sample`, :ref:`wifi_scan_sample`, and :ref:`wifi_shell_sample` samples:
+
+  * Added the :ref:`lib_nrf71_idle_power` library to the ``nrf7120dk/nrf7120/cpuapp`` board configuration, reducing the System ON idle current.
+    The Station and Scan samples also suspend the console while idle between connection or scan events.
 
 * :ref:`wifi_nrf_cloud` sample:
 
@@ -963,12 +1047,19 @@ Multiprotocol Service Layer libraries
 Libraries for networking
 ------------------------
 
-* Added the :ref:`lib_dect_tethering` library (:kconfig:option:`CONFIG_DECT_TETHER_IPV6_LIB`, :ref:`experimental <software_maturity>`) that turns a DECT NR+ uplink into an IPv6 gateway (GW) for a tethered host on Ethernet, without relying on host-side SLAAC.
-  It performs the following operations:
+* Added:
 
-  * Sends ICMPv6 Router Advertisements (default router, RDNSS, Managed flag, PIO with ``A=0``/``L=0``) so that the host uses DHCPv6 for addressing.
-  * Provides a built-in minimal DHCPv6 server (UDP 547) that offers ULA and delegated GUA ``/128`` addresses derived from the DECT NR+ interface.
-  * Optionally forwards IPv6 mDNS (UDP 5353) between the Ethernet and DECT NR+ interfaces through an ``AF_PACKET`` tap.
+  * The :ref:`lib_dect_tethering` library (:kconfig:option:`CONFIG_DECT_TETHER_IPV6_LIB`, :ref:`experimental <software_maturity>`) that turns a DECT NR+ uplink into an IPv6 gateway (GW) for a tethered host on Ethernet, without relying on host-side SLAAC.
+    It performs the following operations:
+
+    * Sends ICMPv6 Router Advertisements (default router, RDNSS, Managed flag, PIO with ``A=0``/``L=0``) so that the host uses DHCPv6 for addressing.
+    * Provides a built-in minimal DHCPv6 server (UDP 547) that offers ULA and delegated GUA ``/128`` addresses derived from the DECT NR+ interface.
+    * Optionally forwards IPv6 mDNS (UDP 5353) between the Ethernet and DECT NR+ interfaces through an ``AF_PACKET`` tap.
+
+  * The DECT ICMPv6 ping shell library (:kconfig:option:`CONFIG_DECT_ICMP_PING_LIB`), which provides ICMPv6 ping functionality for use from shell commands.
+    The functionality was extracted from the ``ping`` command of the :ref:`dect_shell_application` application into a reusable library.
+    It supports hostname resolution, configurable echo request parameters (such as count, interval, and payload size), round-trip time (RTT) statistics, and cancelling an ongoing ping using a :c:struct:`k_poll_signal`.
+    Shell output is handled through the shared :c:struct:`dect_net_lib_shell_print_fns` API (:file:`dect_net_lib_shell.h`).
 
 * :ref:`lib_nrf_cloud_pgps` library:
 
@@ -1001,8 +1092,25 @@ Libraries for networking
 
   * Added a configurable heap allocator for the library's dynamic allocations, selected with the :kconfig:option:`CONFIG_NRF_PROVISIONING_HEAP_KERNEL` (default) and :kconfig:option:`CONFIG_NRF_PROVISIONING_HEAP_SYSTEM` Kconfig options.
 
+* :ref:`lib_aws_fota` library:
+
+  * Added:
+
+    * The :c:enum:`aws_fota_error_cause` enumeration and the ``cause`` field in the :c:struct:`aws_fota_event` structure.
+      The field is set when the :c:enumerator:`AWS_FOTA_EVT_ERROR` event is sent, and reports why the FOTA job failed.
+
+  * Updated the job execution update that marks a job as ``FAILED`` to report the failure in the AWS IoT Jobs ``statusDetails`` field, as ``{"reason":"<cause>","progress":"<percentage>"}``, instead of sending ``null``.
+    This makes it possible to diagnose a failed update from the AWS IoT Jobs console without a serial log from the device.
+
+* :ref:`lib_aws_iot` library:
+
+  * Updated the :c:enumerator:`AWS_IOT_EVT_FOTA_ERROR` event to report the cause of the FOTA failure in the ``data.err`` field, as a value of the :c:enum:`aws_fota_error_cause` enumeration.
+    Previously, the event carried no payload.
+
 Libraries for NFC
 -----------------
+
+* Removed support for the nRF52 Series devices in the NFC subsystem and library.
 
 * :ref:`nfc_ndef_parser_readme`:
 
@@ -1019,7 +1127,11 @@ nRF RPC libraries
 Other libraries
 ---------------
 
-* Added the :ref:`vtf_monitoring` subsystem for battery voltage, temperature, and frequency monitoring used by the nRF Wi-Fi subsystem.
+* Added:
+
+  * The :ref:`lib_nrf71_idle_power` library to reduce the System ON idle current of an nRF71 Series application core by applying a configurable RAM retention level at boot and enabling the device power management options needed for peripherals to suspend while idle.
+    The library also provides the :c:func:`nrf71_idle_power_suspend_console` and :c:func:`nrf71_idle_power_resume_console` functions, which suspend and resume the console or UART device during an application's idle period, for use by any sample that requires the lowest possible idle current.
+  * The :ref:`vtf_monitoring` subsystem for battery voltage, temperature, and frequency monitoring used by the nRF Wi-Fi subsystem.
 
 * :ref:`lib_ram_pwrdn` library:
 
@@ -1090,6 +1202,12 @@ This section provides detailed lists of changes by :ref:`script <scripts>`.
 
   * The SPDX output format from ``SPDX-2.2`` to ``SPDX-2.3``.
   * The ScanCode Toolkit detector to support macOS on ARM64 and Linux aarch64.
+
+* :ref:`nrf_profiler_script` script:
+
+  * Added the ``-o <float>`` / ``--offset`` argument to the :file:`merge_data.py` script.
+    The argument accepts a floating-point peripheral synchronization event offset in microseconds and is applied before clock drift compensation.
+    This allows tuning merged results for the repeatable, constant delays.
 
 Integrations
 ============

@@ -32,7 +32,7 @@ config IPC_SERVICE_BACKEND_ICMSG_WQ_STACK_SIZE
 
 config NRF71_IPC_BIND_TIMEOUT_MS
 	int "IPC endpoint bind timeout (ms)"
-	default 30000
+	default 5000
 	help
 	  Maximum time to wait for the IPC endpoint bound callback after
 	  registration. The Wi-Fi UMAC peer must register its endpoint before
@@ -170,8 +170,19 @@ config NRF_WIFI_LOW_POWER
 config NRF_WIFI_LP_RX
 	bool "Low power RF mode in nRF Wi-Fi chipsets"
 	depends on NRF_WIFI_LOW_POWER
+	default y
 	help
 	  Enable low power RX in the LMAC tuning parameters sent to the RPU.
+
+config NRF_WIFI_BET
+	bool "Beacon early termination (BET) in nRF Wi-Fi chipsets"
+	depends on NRF_WIFI_LOW_POWER
+	default y
+	help
+	  Enable beacon early termination in the LMAC tuning parameters sent
+	  to the RPU. BET lets the RPU stop receiving a beacon as soon as it
+	  determines that none of the fields the host cares about have
+	  changed, cutting short the RX window and saving power.
 
 config NRF71_TCP_IP_CHECKSUM_OFFLOAD
 	bool "TCP/IP checksum offload"
@@ -520,7 +531,6 @@ config NRF_WIFI_RPU_RECOVERY
 	bool "RPU recovery mechanism [EXPERIMENTAL]"
 	# Relies on power-save mode, so, LPM is needed
 	depends on NRF_WIFI_LOW_POWER
-	default y
 	select EXPERIMENTAL
 	help
 	  Enable the RPU recovery mechanism to recover from an RPU (nRF70) hang.
