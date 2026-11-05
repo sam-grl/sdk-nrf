@@ -210,12 +210,12 @@ manifest:
         - libmodem
     - name: openthread
       repo-path: sdk-openthread
-      path: modules/lib/openthread
-      revision: e33f40435949fcf2afc6326bb802d217a9e50db2
+      url: https://github.com/sam-grl/openthread
+      revision: 1da8487ffec8551085b12afeb292cb4d93fb5b40
       userdata:
         ncs:
           upstream-url: https://github.com/openthread/openthread
-          upstream-sha: c6eaeda5a1c1c5dbb24dce7e027340cb8893a77b
+          upstream-sha: 1da8487ffec8551085b12afeb292cb4d93fb5b40
           compare-by-default: false
     - name: doc-internal
       repo-path: doc-internal
