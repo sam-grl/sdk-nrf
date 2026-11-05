@@ -209,7 +209,6 @@ manifest:
       groups:
         - libmodem
     - name: openthread
-      repo-path: sdk-openthread
       url: https://github.com/sam-grl/openthread
       revision: 1da8487ffec8551085b12afeb292cb4d93fb5b40
       userdata:
